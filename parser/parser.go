@@ -1,12 +1,15 @@
 package parser
 
 import (
+	"fmt"
 	"regexp"
 )
 
 type parser struct {
 	java     string // 待解析的Java语句
 	position int    // 当前解析到的位置
+	err      error  // 解析过程中出现的错误
+	state    state  // 当前状态
 }
 
 // 弹出解析的下一个记号
@@ -43,7 +46,12 @@ func (p *parser) peekWithLength() (string, int) {
 		}
 	}
 
-	// 不是保留字,peek其他子句
+	// 判断数字(含科学计数法)
+	if n, l := p.peekNumber(); l != 0 {
+		return n, l
+	}
+
+	// 不是保留字也不是数字,peek其他子句
 	return p.peekIdentifierWithLength()
 }
 
@@ -59,9 +67,72 @@ func (p *parser) peekIdentifierWithLength() (identifier string, length int) {
 	return p.java[p.position:], len(p.java[p.position:])
 }
 
+func (p *parser) peekNumber() (number string, length int) {
+	for i := p.position; i < len(p.java); i++ {
+		if matched, _ := regexp.MatchString(`^[+-]?([0-9]*\.?[0-9]+|[0-9]+\.?[0-9]*)([eE][+-]?[0-9]+)?$`, string(p.java[i])); !matched {
+			return p.java[p.position:i], len(p.java[p.position:i])
+		}
+	}
+
+	return "", 0
+}
 
 // 弹出所有空格
 func (p *parser) popWhitespace() {
 	for ; p.position < len(p.java) && p.java[p.position] == ' '; p.position++ {
+	}
+}
+
+func (p *parser) doParse() (err error) {
+	for {
+		if p.position >= len(p.java) {
+			return p.err
+		}
+		switch p.state {
+		case stateReservedOrIdentifier:
+			token := p.peek()
+			if isReserved(token) {
+				// 是保留字
+				printInfo(token, RESERVED)
+				p.pop()
+				// 因为while\for\if等关键字之后是界符,如果是的话需要跳到界符的状态
+				if isDelimiter(p.peek()) {
+					// 是界符,状态转换为界符
+					p.state = stateOperatorOrDelimiter
+				} else {
+					// 不是界符,可能是关键字(例:public class identifier)或者是标识符(int identifier)
+					// 状态转换为关键字或标识符
+					p.state = stateReservedOrIdentifier
+				}
+			} else if isIdentifier(token) {
+				// 是标识符
+				printInfo(token, IDENTIFIER)
+				p.pop()
+				// 标识符之后是界符(例:List<String>)或运算符(例:int a = 1)
+				p.state = stateOperatorOrDelimiter
+			} else {
+				// 不是标识符也不是保留字,出错
+				p.err = fmt.Errorf("Except reserve word or identifier, got %s ", token)
+				p.state = stateError
+			}
+		case stateNumber:
+		case stateOperatorOrDelimiter:
+			token := p.peek()
+			if isDelimiter(token) {
+				printInfo(token, DELIMITERS)
+				p.pop()
+				p.state = stateReservedOrIdentifier
+			} else if isOperator(token) {
+				printInfo(token, OPERATOR)
+				p.pop()
+			} else {
+				p.err = fmt.Errorf("Except operator or delimiter, got %s ", token)
+				p.state = stateError
+			}
+		case stateError:
+			return p.err
+		default:
+			return nil
+		}
 	}
 }

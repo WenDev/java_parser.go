@@ -33,6 +33,40 @@ func isIdentifier(s string) (result bool) {
 	return
 }
 
+func isReserved(token string) (result bool) {
+	// 判断保留字
+	for _, rw := range reservedWords {
+		if token == rw {
+			return true
+		}
+	}
+	return false
+}
+
+func isDelimiter(token string) (result bool) {
+	// 判断分隔符
+	for _, d := range delimiters {
+		if token == d {
+			return true
+		}
+	}
+	return false
+}
+
+func isOperator(token string) (result bool) {
+	for _, op := range operators {
+		if token == op {
+			return true
+		}
+	}
+	return false
+}
+
+func isNumber(token string) (result bool) {
+	result, _ = regexp.MatchString(`^[+-]?([0-9]*\.?[0-9]+|[0-9]+\.?[0-9]*)([eE][+-]?[0-9]+)?$`, token)
+	return
+}
+
 // printInfo 按格式要求输出读取到的单词符号的类型
 // @param s 单词符号
 // @param t 单词符号的类型
