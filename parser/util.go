@@ -74,7 +74,7 @@ func printInfo(s string, t stringType) {
 	fmt.Printf("(%d, \"%s\")\n", t, s)
 }
 
-// 返回两个数中较小的一个
+// 返回两个数中较大的一个
 func min(a, b int) (min int) {
 	if a < b {
 		return a

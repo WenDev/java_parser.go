@@ -1,0 +1,89 @@
+1号测试用例(来自菜鸟教程)
+public class Logger {
+   private String format;
+   public String getFormat() {
+      return this.format;
+   }
+   public void setFormat(String format) {
+      this.format = format;
+   }
+}
+
+2号测试用例(自己写的)
+package site.wendev.java.playground;
+
+public class Main {
+    public static void main(String[] args) {
+        String s = null;
+        if ((s == null) || (s.length() == 0)) {
+            System.out.println(1);
+        }
+    }
+}
+
+3号测试用例(来自菜鸟教程)
+class Vehicle {}
+
+public class Car extends Vehicle {
+   public static void main(String[] args){
+      Vehicle a = new Car();
+      boolean result =  a instanceof Car;
+      System.out.println( result);
+   }
+}
+
+4号测试用例(来自菜鸟教程)
+public class Test{
+  final int value = 10;
+  public static final int BOXWIDTH = 6;
+  static final String TITLE = "Manager";
+
+  public void changeValue(){
+     value = 12;
+  }
+}
+
+5号测试用例(来自菜鸟教程)
+abstract class Caravan{
+   private double price;
+   private String model;
+   private String year;
+   public abstract void goFast();
+   public abstract void changeColor();
+}
+
+6号测试用例(来自菜鸟教程)
+public class Test {
+   public static void main(String args[]){
+      int i = 5;
+      switch(i){
+         case 0:
+            System.out.println("0");
+         case 1:
+            System.out.println("1");
+         case 2:
+            System.out.println("2");
+         default:
+            System.out.println("default");
+      }
+   }
+}
+
+7号测试用例(来自菜鸟教程)
+import java.util.HashMap;
+
+public class RunoobTest {
+    public static void main(String[] args) {
+        HashMap<Integer, String> Sites = new HashMap<Integer, String>();
+        Sites.put(1, "Google");
+        Sites.put(2, "Runoob");
+        Sites.put(3, "Taobao");
+        Sites.put(4, "Zhihu");
+        for (Integer i : Sites.keySet()) {
+            System.out.println("key: " + i + " value: " + Sites.get(i));
+        }
+        for(String value: Sites.values()) {
+          System.out.print(value + ", ");
+        }
+    }
+}

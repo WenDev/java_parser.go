@@ -3,6 +3,7 @@ package parser
 import (
 	"fmt"
 	"regexp"
+	"strings"
 )
 
 type parser struct {
@@ -38,6 +39,22 @@ func (p *parser) peekWithLength() (string, int) {
 		return "", 0
 	}
 
+	// 判断界符
+	for _, d := range delimiters {
+		token := p.java[p.position:p.position+1]
+		if d == token {
+			return token, 1
+		}
+	}
+
+	// 判断操作符
+	for _, o := range operators {
+		token := p.java[p.position:p.position+2]
+		if strings.Contains(token, o) {
+			return o, len(o)
+		}
+	}
+
 	// 判断保留字
 	for _, rw := range reservedWords {
 		token := p.java[p.position:min(len(p.java), p.position+len(rw))]
@@ -46,7 +63,7 @@ func (p *parser) peekWithLength() (string, int) {
 		}
 	}
 
-	// 判断数字(含科学计数法)
+	// 判断数字
 	if n, l := p.peekNumber(); l != 0 {
 		return n, l
 	}
@@ -79,55 +96,142 @@ func (p *parser) peekNumber() (number string, length int) {
 
 // 弹出所有空格
 func (p *parser) popWhitespace() {
-	for ; p.position < len(p.java) && p.java[p.position] == ' '; p.position++ {
+	for ; p.position < len(p.java) && (p.java[p.position] == ' ' || p.java[p.position] == '\n'); p.position++ {
 	}
 }
 
+// Parse 提供给外部进行调用的函数
+func Parse(java string) (err error) {
+	err = parse(java)
+	return err
+}
+
+// parse 构造一个自动机Parser,开始解析
+func parse(java string) (err error) {
+	return (&parser{
+		java:     strings.TrimSpace(java),
+		position: 0,
+		err:      nil,
+		state:    stateA, // 状态A为起始状态
+	}).parse()
+}
+
+// parse 解析的入口函数
+func (p *parser) parse() (err error) {
+	err = p.doParse()
+	return err
+}
+
+// doParse 主解析函数
 func (p *parser) doParse() (err error) {
 	for {
 		if p.position >= len(p.java) {
 			return p.err
 		}
 		switch p.state {
-		case stateReservedOrIdentifier:
-			token := p.peek()
-			if isReserved(token) {
-				// 是保留字
-				printInfo(token, RESERVED)
+		case stateA:
+			reserved := p.peek()
+			if isReserved(reserved) {
+				printInfo(reserved, RESERVED)
 				p.pop()
-				// 因为while\for\if等关键字之后是界符,如果是的话需要跳到界符的状态
-				if isDelimiter(p.peek()) {
-					// 是界符,状态转换为界符
-					p.state = stateOperatorOrDelimiter
-				} else {
-					// 不是界符,可能是关键字(例:public class identifier)或者是标识符(int identifier)
-					// 状态转换为关键字或标识符
-					p.state = stateReservedOrIdentifier
-				}
-			} else if isIdentifier(token) {
-				// 是标识符
-				printInfo(token, IDENTIFIER)
-				p.pop()
-				// 标识符之后是界符(例:List<String>)或运算符(例:int a = 1)
-				p.state = stateOperatorOrDelimiter
 			} else {
-				// 不是标识符也不是保留字,出错
-				p.err = fmt.Errorf("Except reserve word or identifier, got %s ", token)
+				// 不是标识符,出错
+				p.err = fmt.Errorf("Except a reserve word, got '%s' ", reserved)
+				p.state = stateError
+				continue
+			}
+
+			nextToken := p.peek()
+			if isReserved(nextToken) {
+				p.state = stateA
+			} else if isIdentifier(nextToken) {
+				p.state = stateB
+			} else if isOperator(nextToken) {
+				p.state = stateD
+			} else if isDelimiter(nextToken) {
+				p.state = stateE
+			} else if isNumber(nextToken) {
+				p.state = stateC
+			}
+		case stateB:
+			identifier := p.peek()
+			if isIdentifier(identifier) {
+				printInfo(identifier, IDENTIFIER)
+				p.pop()
+			} else {
+				p.err = fmt.Errorf("Except an identifier, got '%s' ", identifier)
 				p.state = stateError
 			}
-		case stateNumber:
-		case stateOperatorOrDelimiter:
-			token := p.peek()
-			if isDelimiter(token) {
-				printInfo(token, DELIMITERS)
-				p.pop()
-				p.state = stateReservedOrIdentifier
-			} else if isOperator(token) {
-				printInfo(token, OPERATOR)
+
+			nextToken := p.peek()
+			if isIdentifier(nextToken) {
+				p.state = stateB
+			} else if isOperator(nextToken) {
+				p.state = stateD
+			} else if isDelimiter(nextToken) {
+				p.state = stateE
+			} else if isReserved(nextToken) {
+				p.state = stateA
+			}
+		case stateC:
+			number := p.peek()
+			if isNumber(number) {
+				printInfo(number, NUMBER)
 				p.pop()
 			} else {
-				p.err = fmt.Errorf("Except operator or delimiter, got %s ", token)
-				p.state = stateError
+				p.err = fmt.Errorf("Except a number, got '%s' ", number)
+			}
+
+			nextToken := p.peek()
+			if isDelimiter(nextToken) {
+				p.state = stateE
+			} else if isOperator(nextToken) {
+				p.state = stateD
+			}
+		case stateD:
+			operator := p.peek()
+			if isOperator(operator) {
+				printInfo(operator, OPERATOR)
+				p.pop()
+			} else {
+				p.err = fmt.Errorf("Except an operator, got '%s' ", operator)
+			}
+
+			nextToken := p.peek()
+			if isNumber(nextToken) {
+				p.state = stateC
+			} else if isDelimiter(nextToken) {
+				p.state = stateE
+			} else if isIdentifier(nextToken) {
+				p.state = stateB
+			} else if isReserved(nextToken) {
+				p.state = stateA
+			}
+		case stateE:
+			delimiter := p.peek()
+			if isDelimiter(delimiter) {
+				printInfo(delimiter, DELIMITERS)
+				p.pop()
+			} else {
+				p.err = fmt.Errorf("Except a delimiter, got '%s' ", delimiter)
+			}
+
+			// 终结状态
+			if p.position >= len(p.java) {
+				return p.err
+			}
+
+			nextToken := p.peek()
+			if isReserved(nextToken) {
+				p.state = stateA
+			} else if isIdentifier(nextToken) {
+				p.state = stateB
+			} else if isNumber(nextToken) {
+				p.state = stateC
+			} else if isDelimiter(nextToken) {
+				p.state = stateE
+			} else if isOperator(nextToken) {
+				p.state = stateD
 			}
 		case stateError:
 			return p.err

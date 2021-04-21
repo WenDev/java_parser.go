@@ -7,8 +7,10 @@ package parser
 type state int
 
 const (
-	stateError                state = iota // 错误
-	stateReservedOrIdentifier              // 保留字或者标识符
-	stateNumber                            // 数字
-	stateOperatorOrDelimiter               // 运算符
+	stateError state = iota // 错误,遇到错误就跳到这里并且停止解析
+	stateA                  // 起始状态,状态A/B/D/E下读到保留字会进入此状态
+	stateB                  // 状态A/B/D/E下读到标识符会进入此状态
+	stateC                  // 状态A/D下读到常数会进入此状态
+	stateD                  // 状态A/B/C/E下读到运算符会进入此状态
+	stateE                  // 终结状态,状态A/B/C/D/E读到分隔符(界符)会进入此状态
 )
